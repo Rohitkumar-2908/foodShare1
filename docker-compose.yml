@@ -1,0 +1,68 @@
+# Local/staging stack: nginx (TLS, load balancer, gateway) -> 2 stateless app instances -> MongoDB.
+# NOT TESTED in this build environment (Docker was not available). Read docs/OPERATIONS.md first.
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports: ["8080:80", "8443:443"]
+    volumes:
+      - ./ops/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      app1: { condition: service_healthy }
+      app2: { condition: service_healthy }
+    restart: unless-stopped
+
+  app1: &app
+    build: .
+    environment:
+      MONGODB_URI_FILE: /run/secrets/mongodb_uri
+      METRICS_TOKEN_FILE: /run/secrets/metrics_token
+      DATA_KEY_FILE: /run/secrets/data_key
+      ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL in your shell or .env file}
+      DATA_DIR: /app/data
+      TRUST_PROXY: "1"
+      FEATURES: webhooks,metrics
+    secrets: [mongodb_uri, metrics_token, data_key, admin_password]
+    volumes: [appdata:/app/data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on:
+      mongo: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  app2: *app
+
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--auth"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: foodshare
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
+    secrets: [mongo_root_password]
+    volumes: [mongodata:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+secrets:
+  mongodb_uri: { file: ./secrets/mongodb_uri.txt }
+  metrics_token: { file: ./secrets/metrics_token.txt }
+  mongo_root_password: { file: ./secrets/mongo_root_password.txt }
+  data_key: { file: ./secrets/data_key.txt }            # 64 hex characters: openssl rand -hex 32
+  admin_password: { file: ./secrets/admin_password.txt }
+
+volumes:
+  appdata: {}
+  mongodata: {}

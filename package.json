@@ -1,0 +1,23 @@
+{
+  "name": "foodshare",
+  "version": "3.3.0",
+  "description": "FoodShare: food donation platform. MongoDB storage (required on Vercel; automatic local file fallback elsewhere), hardened Node API.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "backup": "node scripts/backup.js",
+    "admin": "node scripts/admin.js",
+    "restore": "node scripts/restore.js",
+    "loadtest": "node scripts/loadtest.js",
+    "profile": "node --cpu-prof --cpu-prof-dir=./profiles server.js"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "mongodb": "6.10.0"
+  }
+}

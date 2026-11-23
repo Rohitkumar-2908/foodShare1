@@ -1,0 +1,7 @@
+global: { scrape_interval: 15s }
+rule_files: [alerts.yml]
+scrape_configs:
+  - job_name: foodshare
+    metrics_path: /metrics
+    authorization: { credentials_file: /etc/prometheus/metrics_token.txt }
+    static_configs: [{ targets: ["app1:3000", "app2:3000"] }]

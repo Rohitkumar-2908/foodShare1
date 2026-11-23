@@ -1,0 +1,15 @@
+node_modules
+.env
+.env.*
+data
+secrets
+certs
+test
+ops
+docs
+scripts
+.github
+Dockerfile
+docker-compose.yml
+.dockerignore
+*.md

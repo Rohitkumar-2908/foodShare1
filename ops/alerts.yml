@@ -1,0 +1,33 @@
+groups:
+  - name: foodshare
+    rules:
+      - alert: InstanceDown
+        expr: up{job="foodshare"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "A FoodShare instance is down" }
+      - alert: MongoCircuitOpen
+        expr: foodshare_circuit_open == 1
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "MongoDB unreachable, serving from the file database" }
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "More than 5% of requests are failing" }
+      - alert: SlowRequests
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "p95 latency above 1s" }
+      - alert: DeadLetterJobs
+        expr: foodshare_dead_letter_jobs > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Background jobs are failing permanently" }
+      - alert: ManyRateLimited
+        expr: sum(rate(http_requests_total{status="429"}[5m])) > 5
+        for: 5m
+        labels: { severity: info }
+        annotations: { summary: "Clients are being rate limited a lot (possible abuse)" }

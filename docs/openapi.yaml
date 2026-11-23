@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info: { title: FoodShare API, version: 3.0.0 }
+servers: [{ url: /api/v1 }]
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: fs_sid }
+    csrf: { type: apiKey, in: header, name: X-CSRF-Token }
+paths:
+  /health: { get: { summary: Database mode, circuit state and whether server-side auth is on, responses: { "200": { description: OK } } } }
+  /flags: { get: { summary: Enabled feature flags, responses: { "200": { description: OK } } } }
+  /auth/register: { post: { summary: "Create a donor, ngo, distributor or organiser account and sign in", responses: { "201": { description: "{user, csrf, view} and session cookie" }, "409": { description: Email exists }, "422": { description: Invalid input or role } } } }
+  /auth/login: { post: { summary: Sign in, responses: { "200": { description: "{user, csrf, view} or {needs2fa, ticket}" }, "401": { description: Wrong credentials }, "403": { description: Suspended }, "429": { description: Locked out, see Retry-After } } } }
+  /auth/login/2fa: { post: { summary: Second step with a TOTP or recovery code, responses: { "200": { description: Signed in }, "401": { description: Wrong code } } } }
+  /auth/logout: { post: { security: [{ session: [], csrf: [] }], summary: End this session, responses: { "200": { description: OK } } } }
+  /auth/logout-all: { post: { security: [{ session: [], csrf: [] }], summary: End all sessions, responses: { "200": { description: OK } } } }
+  /auth/me: { get: { security: [{ session: [] }], summary: Current user and CSRF token, responses: { "200": { description: OK }, "401": { description: Not signed in } } } }
+  /auth/password: { post: { security: [{ session: [], csrf: [] }], summary: Change password, responses: { "200": { description: OK }, "403": { description: Wrong current password } } } }
+  /auth/reset: { post: { summary: Set a password with a one-time code, responses: { "200": { description: OK }, "400": { description: Invalid or expired code } } } }
+  /auth/totp/setup: { post: { security: [{ session: [], csrf: [] }], summary: Start two-factor setup, responses: { "200": { description: "{secret, otpauth}" } } } }
+  /auth/totp/enable: { post: { security: [{ session: [], csrf: [] }], summary: Confirm with a code and receive recovery codes, responses: { "200": { description: "{recoveryCodes}" } } } }
+  /auth/totp/disable: { post: { security: [{ session: [], csrf: [] }], summary: Turn off two-factor (password and code), responses: { "200": { description: OK } } } }
+  /view:
+    get:
+      summary: The data the caller may see (public view when signed out). ETag supported.
+      responses: { "200": { description: "{view, user, csrf, rev}" }, "304": { description: Unchanged } }
+  /contact: { post: { summary: Send a message to the admin inbox, responses: { "201": { description: OK }, "422": { description: Invalid } } } }
+  /actions/{name}:
+    post:
+      security: [{ session: [], csrf: [] }]
+      summary: "Run an action. Names: donation.create|update|delete, order.create|cancel|receive, delivery.accept|pickup, quality.pass|fail, user.verify|suspend|remove|reset, admin.createInspector|donation.delete|order.cancel|message.delete, drive.create|delete, profile.update|avatar, memory.save, account.export|delete"
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string } }
+        - { name: Idempotency-Key, in: header, schema: { type: string, maxLength: 64 } }
+      responses:
+        "200": { description: "{ok, result, view, user, rev}" }
+        "401": { description: Not signed in }
+        "403": { description: Wrong role, not verified, or missing CSRF token }
+        "404": { description: Not found or not yours }
+        "409": { description: State conflict (taken, not enough meals, has orders) }
+        "422": { description: Validation failed }
+        "429": { description: Rate limited or pickup code locked }
+        "503": { description: Read-only mode }
