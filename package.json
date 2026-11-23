@@ -18,6 +18,6 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "mongodb": "6.10.0"
+    "mongodb": "7.9.1"
   }
 }
